@@ -89,7 +89,7 @@ float adaptMCMC::getRegionalVar(int i, int j, int w)
   // cout<<sumOfSqVal<<" "<<sumOfVal<<" "<<n<<endl;
   // else
   variance = (sumOfSqVal / n - (sumOfVal / n) * (sumOfVal / n)) * n / (n - 1);
-  variance=fmax(0.1,variance);
+  // variance=fmax(0.1,variance);
   return variance;
 }
 int adaptMCMC::initialize(char *ofile)
@@ -101,8 +101,7 @@ int adaptMCMC::initialize(char *ofile)
   nSamples = 0;
   rowStep = stepSize;
   colStep = stepSize;
-  // setBoundaries();
-  // fprintf(stderr, "Done setting up boundaries\n");
+
   perBaseChanges = new UpperDiag<unsigned char>(option_firstRow,
                                                 option_firstCol, option_lastRow,
                                                 option_lastCol);
@@ -144,14 +143,15 @@ int adaptMCMC::initialize(char *ofile)
   {
     for (int j = O.startCol(i); j < O.endCol(i); j++)
     {
-      currentPotentialVariance = getRegionalVar(i, j, w);
+      currentPotentialVariance = fmax(0.2,getRegionalVar(i, j, w));
       pairwisePotentialVariance->set(i, j, currentPotentialVariance);
       if (currentPotentialVariance > 0 && currentPotentialVariance < minPairwisePotentialVariance)
         minPairwisePotentialVariance = currentPotentialVariance;
-      // cout<<"pairwiseVariance: "<<i<<" "<<" "<<j<<" "<<pairwisePotentialVariance->get(i,j)<<endl;
     }
   }
+  // exit(0);
 
+/***
   for (int i = O.startRow(); i < O.endRow(); i++)
   {
     for (int j = O.startCol(i); j < O.endCol(i); j++)
@@ -162,7 +162,7 @@ int adaptMCMC::initialize(char *ofile)
       // cout << "pairwiseVariance: " << i << " "
       //      << " " << j << " " << pairwisePotentialVariance->get(i, j) << endl;
     }
-  }
+  }***/
   // exit(0);
 
   for (int i = O.startRow(); i < O.endRow(); i++)
@@ -308,10 +308,9 @@ int adaptMCMC::initialize(char *ofile)
     }
   }
 
-  cout << "idx " << idx << endl;
-  cout << "idx2 " << idx2 << endl;
+
   poissonGLM pglm2(8, idx2, 1);
-  cout << "start refinement fitting\n";
+
   pglm2.lbfgsfit(X2, y2);
 
   delete[] y;
@@ -331,7 +330,7 @@ int adaptMCMC::initialize(char *ofile)
   for (int i = O.startRow(); i < O.endRow(); i++)
     for (int j = O.startCol(i) + 1; j < O.endCol(i); j++)
     {
-      cout << "glm " << i << " " << j << " ";
+      // cout << "glm " << i << " " << j << " ";
       cbs.get_xi(log(j - i), x);
       x[7] = 0; //log(bias[i]*bias[j]);
 
@@ -339,8 +338,7 @@ int adaptMCMC::initialize(char *ofile)
       // x[1]=0;
 
       localPotential->set(i, j, pglm.predict(x));
-      cout << pglm2.predict(x) << endl
-           << flush;
+
     }
 
   //approx diagwise variance with normalized contact map(i.e. O/bias)
@@ -382,7 +380,7 @@ int adaptMCMC::initialize(char *ofile)
         approxVar[idx] = varlogNormO;
         genomicdistance[idx] = gd;
         idx++;
-        cout << "ttt " << gd << " " << varlogNormO << endl;
+        // cout << "ttt " << gd << " " << varlogNormO << endl;
       }
     }
   }
@@ -394,7 +392,7 @@ int adaptMCMC::initialize(char *ofile)
 
   // fitExp_bfgs(idx, genomicdistance, approxVar, expparam_a, expparam_b, expparam_c);
   fitExp(idx, genomicdistance, approxVar, expparam_a, expparam_b, expparam_c);
-  cerr << "y=" << expparam_a << "*np.exp(" << expparam_b << "*x)+" << expparam_c << endl;
+  // cerr << "y=" << expparam_a << "*np.exp(" << expparam_b << "*x)+" << expparam_c << endl;
   // exit(0);
   delete[] genomicdistance;
   delete[] approxVar;
@@ -403,13 +401,13 @@ int adaptMCMC::initialize(char *ofile)
   for (int i = 0; i < max(O.endRow(), O.endCol(O.endRow() - 1)); i++)
   {
     // cout << "localSigmaSq " << i << " ";
-    localPotentialSigma[i] = predExp(i, expparam_a, expparam_b, expparam_c);
-    localPotentialSigma[i] = fmax(1e-5, localPotentialSigma[i]);
+    localPotentialSigma[i] = approxVar[i];//predExp(i, expparam_a, expparam_b, expparam_c);
+    localPotentialSigma[i] = fmax(0.5, localPotentialSigma[i]);
     // cout << localPotentialSigma[i] << endl
     //  << flush;
   }
-  cout << "finished localPotentialSigma\n";
-
+  // cout << "finished localPotentialSigma\n";
+  // exit(0);
   return 0;
 }
 
@@ -452,7 +450,7 @@ int adaptMCMC::burnIn()
   pthread_mutex_init(&adaptmcmc_mutex, NULL);
   for (rep = 1; true; rep++)
   {
-    // cout << "burn-in iter: " << rep << endl;
+    cout << "burn-in iter: " << rep << endl;
     if (rep == 1300)
       return 0;
     // this->adaptive=false;
@@ -510,7 +508,7 @@ int adaptMCMC::burnIn()
         if (rep % 50 == 1)
         {
           this->evaluateFullLikelihood(lPrior, lData);
-          cout << "burnIn it" << rep << ",chain1, Likelihood: " << lPrior + lData << " (" << lPrior << " , " << lData << ") changes=" << Changes << "\tsumChanges: " << sumChanges;
+          // cout << "burnIn it" << rep << ",chain1, Likelihood: " << lPrior + lData << " (" << lPrior << " , " << lData << ") changes=" << Changes << "\tsumChanges: " << sumChanges;
         }
       }
       else
@@ -518,8 +516,8 @@ int adaptMCMC::burnIn()
         if (rep % 50 == 1)
         {
           this->evaluateFullLikelihood(lPrior, lData);
-          cout << " ;chain2 changes=" << Changes << " , sumChanges " << sumChanges
-               << " Likelihood: " << lPrior + lData << " (" << lPrior << " , " << lData << ")" << endl;
+          // cout << " ;chain2 changes=" << Changes << " , sumChanges " << sumChanges
+          //      << " Likelihood: " << lPrior + lData << " (" << lPrior << " , " << lData << ")" << endl;
         }
       }
     } //end of looping chain 1, 2
@@ -563,7 +561,7 @@ int adaptMCMC::burnIn()
     //convergence test after each k iterations
     if (rep == k)
     {
-      cout << "Burn-in iter: " << rep << endl;
+      // cout << "Burn-in iter: " << rep << endl;
       for (int i = O.startRow(); i < O.endRow(); i++)
       {
         for (int j = O.startCol(i); j < O.endCol(i); j++)
@@ -576,10 +574,10 @@ int adaptMCMC::burnIn()
     }
     else if (rep > 0 && rep % k == 0)
     {
-      cout << "Burn-in iter: " << rep << endl;
+      // cout << "Burn-in iter: " << rep << endl;
       if (blockConverged())
       {
-        cout << "burn-in done\n";
+        // cout << "burn-in done\n";
         mCurrentTPtr = mTPtr;
         return 0;
       }
@@ -606,11 +604,9 @@ int adaptMCMC::mainIter()
   double lPrior, lData;
   int startRow = O.startRow(), endRow = O.endRow();
   this->evaluateFullLikelihood(lPrior, lData);
-  cerr << "MCMC iter: " << 0 << " Likelihood: " << lPrior + lData << " (" << lPrior << " , " << lData << ") Changes:"
-       << Changes;
-  if (option_testMatrix[0])
-    cerr << ", test_SSE: " << evaluateAgainstTest(mCurrentTPtr);
-  cerr << endl;
+  // cerr << "MCMC iter: " << 0 << " Likelihood: " << lPrior + lData << " (" << lPrior << " , " << lData << ") Changes:"
+  //      << Changes;
+  // cerr << endl;
   int tids[n_threads];
   double newVal;
   pthread_t threads[n_threads];
@@ -709,8 +705,6 @@ int adaptMCMC::mainIter()
       this->evaluateFullLikelihood(lPrior, lData);
       cerr << "MCMC iter: " << rep + 1 << " Likelihood: " << lPrior + lData << " (" << lPrior << " , " << lData << ") Changes:"
            << Changes << ", sumChanges: " << sumChanges;
-      if (option_testMatrix[0])
-        cerr << ", test_SSE: " << evaluateAgainstTest(mCurrentTPtr);
       cerr << endl;
     }
   } // end of MCMC iteration loop
@@ -909,7 +903,7 @@ int adaptMCMC::evaluateFullLikelihood(double &lPrior, double &lData)
 
   double o;
   double t;
-  double variance = option_sigma;
+  // double variance = option_sigma;
   lPrior = 0;
   lData = 0;
 
@@ -964,14 +958,14 @@ int adaptMCMC::getNeighbors(const int &i, const int &j, float allNei[]) const
       jj = j + off_j;
       if (ii < jj && ii >= startRow && ii < endRow && jj >= O.startCol(ii) && jj < O.endCol(ii))
       {
-        // if (off_j == -1 && verticalBoundary.get(i, j - 1))
-        //   continue;
-        // if (off_j == +1 && verticalBoundary.get(i, j))
-        //   continue;
-        // if (off_i == -1 && (i == startRow || horizontalBoundary.get(i - 1, j)))
-        //   continue;
-        // if (off_i == +1 && horizontalBoundary.get(i, j))
-        //   continue;
+        if (off_j == -1 && verticalBoundary.get(i, j - 1))
+          continue;
+        if (off_j == +1 && verticalBoundary.get(i, j))
+          continue;
+        if (off_i == -1 && (i == startRow || horizontalBoundary.get(i - 1, j)))
+          continue;
+        if (off_i == +1 && horizontalBoundary.get(i, j))
+          continue;
 
         // if(ii==i || jj==j){ //used for first order
         allNei[nNei] = mCurrentTPtr->get(ii, jj);
@@ -1002,7 +996,7 @@ double adaptMCMC::mhRatio(const int &i, const int &j, double &newVal)
   getNeighbors(i, j, allNei);
   double oldVal = mCurrentTPtr->get(i, j);
   double o = O.get(i, j);
-  double variance; // = option_sigma;
+  // double variance; // = option_sigma;
   llike1 = 0;
   llike2 = 0;
   for (int ii = 0; ii < 8 && allNei[ii] > -1; ii++)
@@ -1017,17 +1011,12 @@ double adaptMCMC::mhRatio(const int &i, const int &j, double &newVal)
   llike2 += o * log(biases * newVal * this->batchSize) - biases * newVal * this->batchSize;
   //end of poisson
 
-  // // // //local potential
-  // // // // gamma based local potential.. removed
-  // // // llike1 += (piror_k[abs(j - i)] - 1) * log(oldVal) - oldVal / piror_theta[abs(j - i)];
-  // // // llike2 += (piror_k[abs(j - i)] - 1) * log(newVal) - newVal / piror_theta[abs(j - i)];
-  // // // //==================================
+  llike1 -= pow(log(localPotential->get(i, j) + 1) - log(oldVal + 1), 2) /localPotentialSigma[j - i];
+  llike2 -= pow(log(localPotential->get(i, j) + 1) - log(newVal + 1), 2) /localPotentialSigma[j - i];
 
-  llike1 -= pow(log(localPotential->get(i, j) + 1) - log(oldVal + 1), 2) / localPotentialSigma[j - i];
-  llike2 -= pow(log(localPotential->get(i, j) + 1) - log(newVal + 1), 2) / localPotentialSigma[j - i];
 
-  // llike1 -= pow(localPotential->get(i, j) - oldVal * this->batchSize, 2) / localPotentialSigma[j - i];
-  // llike2 -= pow(localPotential->get(i, j) - newVal * this->batchSize, 2) / localPotentialSigma[j - i];
+  // llike1 -= pow(localPotential->get(i, j) - oldVal * this->batchSize, 2) / localPotentialSigma[j - i]; // old delete
+  // llike2 -= pow(localPotential->get(i, j) - newVal * this->batchSize, 2) / localPotentialSigma[j - i];// old delete
 
   delete[] allNei;
   return exp(llike2 - llike1) * newVal / oldVal;

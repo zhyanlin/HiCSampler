@@ -243,10 +243,10 @@ void setBoundaries()
 
 		if (maxks > option_boundaryKS)
 		{
-			fprintf(stderr,
-					"For columns %d, vertical boundary from %d to %d, with ks=%lf\n",
-					j, maxi, maxi2, maxks);
-			fflush(stderr);
+			// fprintf(stderr,
+			// 		"For columns %d, vertical boundary from %d to %d, with ks=%lf\n",
+			// 		j, maxi, maxi2, maxks);
+			// fflush(stderr);
 			for (int i = maxi; i <= maxi2; i++)
 			{
 				verticalBoundary.set(i, j, 1);
@@ -357,7 +357,7 @@ void setBoundaries()
 					tmp = tmp / 2;
 					verticalBoundary.set(i, j, 0);
 					verticalBoundary.set(i, j - tmp, 1);
-					cout << "I'm a boundary " << i << " " << j - tmp << " " << 1 << endl;
+					// cout << "I'm a boundary " << i << " " << j - tmp << " " << 1 << endl;
 				}
 			}
 		}
@@ -381,7 +381,7 @@ void setBoundaries()
 					tmp = tmp / 2;
 					horizontalBoundary.set(i, j, 0);
 					horizontalBoundary.set(i - tmp, j, 1);
-					cout << "I'm a boundary " << i - tmp << " " << j << " " << 1 << endl;
+					// cout << "I'm a boundary " << i - tmp << " " << j << " " << 1 << endl;
 				}
 			}
 		}
