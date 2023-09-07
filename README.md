@@ -11,7 +11,7 @@
 
 
 
-Example run:
+### Example run:
 
 <code>HiCSampler sampledata/test.RC.txt sampledata/output.txt.gz --bias=sampledata/bias.txt --it=5000 --threads=10</code>
 
