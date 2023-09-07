@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 	if (argc < 4)
 	{
 		fprintf(stderr,
-				"adaptiveHiC <matrix_file_with_row_count> outputfile <options>\n");
+				"HiCSampler ReadCountMatrix outputfile <options>\n");
 		exit(1);
 	}
 
