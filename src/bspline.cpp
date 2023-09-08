@@ -7,7 +7,7 @@
 using namespace std;
 
 /* number of data points to fit */
-#define N 200
+// #define N 200
 
 /* number of fit coefficients */
 
@@ -26,9 +26,13 @@ cubicBspline::cubicBspline(int ncoeffs , double *breakpts)
     gsl_bspline_knots(this->breakpts, bw);
     B = gsl_vector_alloc(ncoeffs);
 };
-int cubicBspline::get_xi(double xi, double *bsplineX)
-{
+void cubicBspline::get_xi(double xi, double *bsplineX)
+{   
+
     gsl_bspline_eval(xi, B, bw);
-    for (int j = 0; j < ncoeffs; ++j)
+
+    for (int j = 0; j < this->ncoeffs; j++){
         bsplineX[j] = gsl_vector_get(B, j);
+
+        }
 };

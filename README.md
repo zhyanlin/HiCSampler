@@ -13,6 +13,6 @@
 
 ### Example run:
 
-<code>HiCSampler sampledata/test.RC.txt sampledata/output.txt.gz --bias=sampledata/bias.txt --it=5000 --threads=10</code>
+<code>./HiCSampler sampledata/test.RC.txt sampledata/output.txt.gz --bias=./sampledata/test.bias.txt --it=5000 --threads=10</code>
 
 This will run HiCsampler for 5000 iterations after the burn-in phase to sample posterior contact maps from read count matrix RC.tsv. It outputs summary stats for the posterior distribution to output.txt.gz. In addition, it save samples to folder sampledata.

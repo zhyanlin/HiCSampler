@@ -269,7 +269,9 @@ int adaptMCMC::initialize(char *ofile)
       if (numOfUsedPairs > 500000 && drand48() > 500000.0 / numOfUsedPairs)
         continue;
       y[idx] = O.get(i, j);
+
       cbs.get_xi(log(j - i), &X[idx][0]);
+
       X[idx][7] = log(bias[i] * bias[j]);
       idx++;
     }
@@ -298,6 +300,7 @@ int adaptMCMC::initialize(char *ofile)
   for (int i = 0; i < idx; i++)
   {
     mu = pglm.predict(X[i]);
+    // std::cout<<"mean "<<mu<<endl;
     pval = gsl_cdf_poisson_Q(y[i], mu) + gsl_ran_poisson_pdf(y[i], mu);
     if (pval > 0.025)
     {
@@ -309,20 +312,20 @@ int adaptMCMC::initialize(char *ofile)
   }
 
 
-  poissonGLM pglm2(8, idx2, 1);
+  // poissonGLM pglm2(8, idx2, 1);
 
-  pglm2.lbfgsfit(X2, y2);
+  // pglm2.lbfgsfit(X2, y2);
 
-  delete[] y;
-  delete[] y2;
+  // delete[] y;
+  // delete[] y2;
 
-  for (int i = 0; i < idx; i++)
-  {
-    delete[] X[i];
-    delete[] X2[i];
-  }
-  delete[] X;
-  delete[] X2;
+  // for (int i = 0; i < idx; i++)
+  // {
+  //   delete[] X[i];
+  //   delete[] X2[i];
+  // }
+  // delete[] X;
+  // delete[] X2;
 
   //. refine null glm nodel
 

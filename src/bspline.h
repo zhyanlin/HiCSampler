@@ -9,7 +9,7 @@
 class cubicBspline{
     public:
     cubicBspline(int ncoeffs,double* breakpts);
-    int get_xi(double x, double* bsplineX);
+    void get_xi(double x, double* bsplineX);
     private:
     int nbreak,ncoeffs;
     gsl_bspline_workspace *bw;
