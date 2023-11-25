@@ -32,7 +32,21 @@ This will run HiCsampler for 5000 iterations after the burn-in phase to sample p
 
 
 
+## 4. Input and Output format:
+### 4.1 Input
+HiCSampler take two files as input: 
 
+#### 4.1.1. read count matrix:
+The read count matrix file is a list of read count (RC). Each row in such a file represent a pair of contact bins containing:  
+
+<pre>chrom1	bin1 chrom2 bin2 RC</pre>
+#### 4.1.2. bias vector:
+The ith row is the bias for the i-1th bin:
+<pre> bin_num   bias</pre>
+### 4.2 Output
+The output of HiCSampler is a list of posterior interaction freqency (IF) matrix sampled by HiCSampler every 50 steps. Each matrix is stored in a file. Each row in such a file is a pair of contact pairs containing:  
+
+<pre>chrom1	bin1 chrom2 bin2 IF</pre>
 
 ## 4. Preparing input from data in .[m]cool format
 You can use the follow command to convert a HiC data in .[m]cool format into HiCSampler's input format. Both 4.1 and 4.2 output read counts to output.RC.tsv, bias vector to output.bias.tsv
