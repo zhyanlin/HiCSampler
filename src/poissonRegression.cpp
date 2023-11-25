@@ -20,7 +20,7 @@ void mle_df(const gsl_vector *w, void *params,
             wx += gsl_vector_get(w, j) * glmTraindata.X[i][j];
     
         for (int j = 0; j < glmTraindata.numOfFeatures + 1; j++)
-            pd[j] += glmTraindata.X[i][j] * exp(wx) - glmTraindata.y[i] * glmTraindata.X[i][j];
+            pd[j] += glmTraindata.X[i][j] * exp(wx) *glmTraindata.hicbias[i] - glmTraindata.y[i] * glmTraindata.X[i][j];
     }
     //reset gradient to 0 for offset features
     for (int i = 0; i < glmTraindata.offsets; i++)
@@ -43,7 +43,7 @@ double mle_f(const gsl_vector *w, void *params)
         wx = 0;
         for (int j = 0; j < glmTraindata.numOfFeatures + 1; j++)
             wx += gsl_vector_get(w, j) * glmTraindata.X[i][j];
-        f += glmTraindata.y[i] * wx - exp(wx);
+        f += glmTraindata.y[i] * wx - glmTraindata.hicbias[i]*exp(wx);
     }
     // cout<<"ll="<<f<<endl;
     f=-f;
@@ -62,7 +62,7 @@ void mle_fdf(const gsl_vector *x, void *params,
 };
 
 
-int poissonGLM::lbfgsfit(double **X, double *y)
+int poissonGLM::lbfgsfit(double **X, double *y,double *Xbias)
 {
     for (int i = 0; i < this->numOfInstances; i++)
         for (int j = 0; j < this->numOfFeatures; j++)
@@ -84,6 +84,7 @@ int poissonGLM::lbfgsfit(double **X, double *y)
         for (int j = 0; j < this->numOfFeatures; j++)
             glmTraindata.X[i][j] = (X[i][j] - mean[j]) / std[j];
         glmTraindata.X[i][this->numOfFeatures] = 1;
+        glmTraindata.hicbias[i] = Xbias[i];
     }
 
     size_t iter = 0;
@@ -113,11 +114,11 @@ int poissonGLM::lbfgsfit(double **X, double *y)
     T = gsl_multimin_fdfminimizer_vector_bfgs2;
     s = gsl_multimin_fdfminimizer_alloc(T, this->numOfFeatures + 1);
 
-    gsl_multimin_fdfminimizer_set(s, &my_func, x, 1, 1e-2);
+    gsl_multimin_fdfminimizer_set(s, &my_func, x, 0.01, 1e-4);
    
     do
     {   
-        cout<<"iter "<<iter<<endl;
+        cout<<"iter "<<iter<<": "<<s->f<<endl;
         iter++;
         status=gsl_multimin_fdfminimizer_iterate(s);
 
@@ -125,7 +126,9 @@ int poissonGLM::lbfgsfit(double **X, double *y)
             break;
 
         status = gsl_multimin_test_gradient(s->gradient, 1e-10);
+
  
+
 
 
     } while (status == GSL_CONTINUE &&  iter < 10000);

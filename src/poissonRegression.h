@@ -11,7 +11,7 @@ struct GLMData
     int numOfFeatures;
     int offsets;
     int numOfInstances;
-    double *y;
+    double *y, *hicbias;
     double **X;
 };
 extern GLMData glmTraindata;
@@ -28,12 +28,13 @@ public:
         glmTraindata.offsets = offsets;
         glmTraindata.numOfInstances = numOfInstances;
 
-        this->w = new double[this->numOfFeatures + 1];
-        this->wNew = new double[this->numOfFeatures + 1];
+        this->w = new double[this->numOfFeatures + 1]; // w[-1] is the bias in linear regression
+        this->wNew = new double[this->numOfFeatures + 1]; // w[-1] is the bias in linear regression
         this->y = new double[numOfInstances];
         this->X = new double *[numOfInstances];
 
         glmTraindata.y = new double[numOfInstances];
+        glmTraindata.hicbias = new double[numOfInstances];
         glmTraindata.X = new double *[numOfInstances];
         for (int i = 0; i < numOfInstances; i++)
             glmTraindata.X[i] = new double[this->numOfFeatures + 1];
@@ -51,7 +52,7 @@ public:
             this->std[i] = 0;
         }
     };
-    int lbfgsfit(double **X, double *y);
+    int lbfgsfit(double **X, double *y,double *Xbias);
     int fit(double **X, double *y)
     {
 
@@ -82,7 +83,7 @@ public:
             glmTraindata.y[i] = y[i];
             for (int j = 0; j < this->numOfFeatures; j++)
                 glmTraindata.X[i][j] = (X[i][j] - mean[j]) / std[j];
-            glmTraindata.X[i][this->numOfFeatures] = 1;
+            glmTraindata.X[i][this->numOfFeatures] = 1; // w[-1] is the bias in linear regression
         }
         //start fitting through gradient descent
         ll_old = 0;
@@ -138,7 +139,7 @@ public:
         // lr=0.001;
         ll_new = ll_old - 1;
         while (fabs(ll_new - ll_old) > 1e-5)
-        {
+        {   cout<<"ll_new "<<ll_new<<endl;
 
             ll_old = ll_new;
             //apply gradient descent
@@ -225,10 +226,13 @@ public:
     {
         double val = 0;
         for (int i = 0; i < this->numOfFeatures; i++){
+            // cout<<"w[i] * ((x["<<i<<"] - this->mean["<<i<<"]) / this->std["<<i<<"])"<<endl;
+            // cout<<" > "<<w[i]<<" *"<< "(("<<x[i]<<" -"<< this->mean[i]<<") /"<< this->std[i]<<")"<<endl;
             val += w[i] * ((x[i] - this->mean[i]) / this->std[i]);
         
         }
-        val += w[this->numOfFeatures]; //bias term
+        val += w[this->numOfFeatures]; //GLM bias
+        // cout<<"w[this->numOfFeatures] "<<w[this->numOfFeatures]<<endl;
         return exp(val);
     };
 

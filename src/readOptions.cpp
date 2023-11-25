@@ -20,7 +20,8 @@ int option_diagBand = 1000;
 int option_kdeMinCount = 50;
 double option_boundaryDensity = 100.0;
 double option_boundaryDenisty = 1.0;
-double option_sigma = 10;
+double option_sigma = 0;
+double option_w = 8;
 double option_averageFragmentSize = 4096;
 bool option_inputFullMatrix = false;
 bool option_inputSparseMatrix = true;
@@ -39,6 +40,7 @@ int option_lastRow = -1;
 int option_lastCol = -1;
 char option_initializationMatrix[1000];
 char option_testMatrix[1000];
+char option_prior[100];
 
 char option_annotationFile[1000];
 
@@ -66,9 +68,19 @@ void readOptions(int argc, char *argv[])
     //   }
     //   continue;
     // }
-    if (strstr(argv[i], "-sigma="))
+    if (strstr(argv[i], "--sigma="))
     {
-      int x = sscanf(argv[i], "-sigma=%lf", &option_sigma);
+      int x = sscanf(argv[i], "--sigma=%lf", &option_sigma);
+      if (x != 1)
+      {
+        fprintf(stderr, "Error: Can't read %s\n", argv[i]);
+      }
+      continue;
+    }
+
+    if (strstr(argv[i], "-w="))
+    {
+      int x = sscanf(argv[i], "-w=%lf", &option_w);
       if (x != 1)
       {
         fprintf(stderr, "Error: Can't read %s\n", argv[i]);
@@ -226,6 +238,16 @@ void readOptions(int argc, char *argv[])
     if (strstr(argv[i], "--bias="))
     {
       int x = sscanf(argv[i], "--bias=%s", option_bias);
+      if (x != 1)
+      {
+        fprintf(stderr, "Error: Can't read %s\n", argv[i]);
+      };
+      continue;
+    }
+
+    if (strstr(argv[i], "--prior="))
+    {
+      int x = sscanf(argv[i], "--prior=%s", option_prior);
       if (x != 1)
       {
         fprintf(stderr, "Error: Can't read %s\n", argv[i]);

@@ -27,7 +27,7 @@ OBJECTS_decomp_ll=decomp_ll.o utils.o contactMap.o readOptions.o
 #
 
 # CCLNFLAGS = -L$(CPLEXLIBDIR) -lilocplex -lcplex -L$(CONCERTLIBDIR) -lconcert -lm -pthread
-CCFLAGS = -g -fpermissive -static -lstdc++ -std=c++11  -DARMA_DONT_USE_WRAPPER  -pthread -lm -lz -lgsl -lgslcblas
+CCFLAGS = -O3 -fpermissive -static -lstdc++ -std=c++11  -DARMA_DONT_USE_WRAPPER  -pthread -lm -lz -lgsl -lgslcblas
 #-lm -pthread -llapack  -static -static-libgfortran -lblas
 #CCFLAGS = $(CCOPT) -I$(CPLEXINCDIR) -I$(CONCERTINCDIR) 
 

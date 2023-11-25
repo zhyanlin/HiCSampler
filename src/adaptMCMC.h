@@ -31,7 +31,7 @@ private:
   UpperDiag<char> *hasChanged;
   UpperDiag<unsigned char> *mAcceptances, *mAcceptances2, *mCurrentAcceptances; //,*chainB_Accept, *mCurrentChain_Accept;
 
-  UpperDiag<float> *mSigmas, *mSigmas2, *mCurrentSigmas, *localPotential, *pairwisePotentialVariance; //scaleA, *scaleB, *mCurrentScale;
+  UpperDiag<float> *mSigmas, *mSigmas2, *mCurrentSigmas, *pairwisePotentialVariance; //scaleA, *scaleB, *mCurrentScale;
 
   UpperDiag<unsigned char> *perBaseChanges; // used in adaptMCMC in main runs
   unsigned long nChanges;
@@ -88,7 +88,7 @@ private:
 
   std::map<std::pair<int, int>, chainDiff> mBlockedChainDiff;
   double acceptLowBound, acceptHighBound;
-  double *localPotentialSigma;
+  double *localPotentialSigma, *localPotential;
 
 };
 

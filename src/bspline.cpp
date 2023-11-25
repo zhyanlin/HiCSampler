@@ -33,6 +33,7 @@ void cubicBspline::get_xi(double xi, double *bsplineX)
 
     for (int j = 0; j < this->ncoeffs; j++){
         bsplineX[j] = gsl_vector_get(B, j);
+        // cout<<"bsplineX["<<j<<"]="<<bsplineX[j]<<endl;
 
         }
 };

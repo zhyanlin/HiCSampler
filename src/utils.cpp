@@ -728,20 +728,18 @@ void readFullOMatrix(char *fn, UpperDiag<float> *mat, bool setBias)
 			std::ifstream biasFile(option_bias);
 			int pos;
 			float bv, minBias;
-			minBias = 999;
+			minBias = 0.1;
 			while (biasFile >> pos >> bv)
 			{
 				if (pos < fullMatrix_size)
 				{
 					bias[pos] = bv;
-					if (bv < minBias)
-						minBias = bv;
 					fprintf(stderr, "Bias[%d]=%f\n", pos, bias[pos]);
 				}
 			}
 			for (int i = 0; i < fullMatrix_size; i++)
 				if (bias[i] < minBias)
-					bias[i] = minBias;
+					bias[i] = 1;
 		}
 	}
 	//read piror

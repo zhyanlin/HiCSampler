@@ -24,8 +24,36 @@
 #include "bspline.h"
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_cdf.h>
+#include <numeric>
+#include <vector>
+#include <iostream>
+using namespace std;
+
 pthread_mutex_t adaptmcmc_mutex;
 thread_local bool th_boundaries = false;
+
+double dtransfrom(double x)
+{
+  // return x;
+  return log(x);
+}
+std::tuple<double, double> meanVar(const vector<double> v)
+{
+  double sum = std::accumulate(v.begin(), v.end(), 0.0);
+  double mean = sum / v.size();
+  double sq_sum = std::inner_product(v.begin(), v.end(), v.begin(), 0.0);
+  double var = sq_sum / v.size() - mean * mean;
+  return std::make_tuple(mean, var);
+}
+
+double Var(const vector<double> v)
+{
+  double sum = std::accumulate(v.begin(), v.end(), 0.0);
+  double mean = sum / v.size();
+  double sq_sum = std::inner_product(v.begin(), v.end(), v.begin(), 0.0);
+  double var = sq_sum / v.size() - mean * mean;
+  return var;
+}
 
 float adaptMCMC::getRegionalVar(int i, int j, int w)
 {
@@ -33,6 +61,7 @@ float adaptMCMC::getRegionalVar(int i, int j, int w)
   double variance;
   double sumOfVal = 0, sumOfSqVal = 0;
   int n = 0;
+  vector<double> IFs;
 
   int ii, jj, off_j;
   int startRow = O.startRow(), endRow = O.endRow();
@@ -51,6 +80,8 @@ float adaptMCMC::getRegionalVar(int i, int j, int w)
         // cout<<" -> "<<ii<<" "<<jj<<endl;
 
         t = log(T.get(ii, jj) + 1);
+        IFs.push_back(t);
+        /***
         if (ii - 1 >= startRow && jj - 1 >= O.startCol(ii - 1))
         {
           // cout<<"a\n"<<flush;
@@ -80,9 +111,11 @@ float adaptMCMC::getRegionalVar(int i, int j, int w)
           n++;
         }
         // cout<<exp(t)-1<<" tnei* "<<exp(tNei)-1<<endl;
+        ***/
       }
     }
   }
+  return Var(IFs);
   // return 0.1;
   if (n == 0)
     return 1;
@@ -136,22 +169,25 @@ int adaptMCMC::initialize(char *ofile)
   sumOfC1 = 0;
   sumOfC2 = 0;
 
-  int w = option_sigma;
-  double minPairwisePotentialVariance = 1e32;
+  int w = option_w;
   double currentPotentialVariance;
   for (int i = O.startRow(); i < O.endRow(); i++)
   {
     for (int j = O.startCol(i); j < O.endCol(i); j++)
     {
-      currentPotentialVariance = fmax(0.2,getRegionalVar(i, j, w));
-      pairwisePotentialVariance->set(i, j, currentPotentialVariance);
-      if (currentPotentialVariance > 0 && currentPotentialVariance < minPairwisePotentialVariance)
-        minPairwisePotentialVariance = currentPotentialVariance;
+
+      currentPotentialVariance = fmax(0.1, getRegionalVar(i, j, w));
+      cout << i << "\t" << j << "\t" << w << "\t" << getRegionalVar(i, j, w) << "\tregionalVar\n";
+
+      if(option_sigma>0)
+        pairwisePotentialVariance->set(i, j, option_sigma);
+      else
+        pairwisePotentialVariance->set(i, j, currentPotentialVariance);
+      cout<<"pairwisePotentialVariance "<<pairwisePotentialVariance->get(i,j)<<endl;
     }
   }
-  // exit(0);
 
-/***
+  /***
   for (int i = O.startRow(); i < O.endRow(); i++)
   {
     for (int j = O.startCol(i); j < O.endCol(i); j++)
@@ -234,18 +270,20 @@ int adaptMCMC::initialize(char *ofile)
   mCurrentTPtr = mTPtr;
 
   //calculate local potential based on poisson regression
-  localPotential = new UpperDiag<float>(option_firstRow, option_firstCol,
-                                        option_lastRow, option_lastCol);
 
   double *breakpts = new double[5]; //cubic bspline with 7 ncoeffs (df=7-1)
   breakpts[0] = 0;
   breakpts[4] = breakpts[0];
+
   for (int i = O.startRow(); i < O.endRow(); i++)
-    if (log(O.endCol(i) - i) > breakpts[4])
-      breakpts[4] = log(O.endCol(i) - i);
+    if (dtransfrom(O.endCol(i) - i) > breakpts[4])
+      breakpts[4] = dtransfrom(O.endCol(i) - i);
   breakpts[1] = (breakpts[4] - breakpts[0]) * 0.25 + breakpts[0];
   breakpts[2] = (breakpts[4] - breakpts[0]) * 0.25 + breakpts[1];
   breakpts[3] = (breakpts[4] - breakpts[0]) * 0.25 + breakpts[2];
+
+  // cout<<"breakpts "<<breakpts[0] <<", "<<breakpts[1]<<", "<<breakpts[2]<<", "<<breakpts[3]<<", "<<breakpts[4]<<endl;
+  // exit(0);
 
   cubicBspline cbs(7, breakpts);
   // exit(0);
@@ -253,12 +291,13 @@ int adaptMCMC::initialize(char *ofile)
   for (int i = O.startRow(); i < O.endRow(); i++)
     for (int j = O.startCol(i) + 1; j < O.endCol(i); j++)
       numOfUsedPairs++;
-  double **X, *y;
-  y = new double[max(510000, numOfUsedPairs)];
-  X = new double *[max(510000, numOfUsedPairs)];
-  for (int i = 0; i < max(510000, numOfUsedPairs); i++)
-    X[i] = new double[8];
-  cout << "numOfUsedPairs " << max(510000, numOfUsedPairs) << endl;
+  double **X, *y, *Xhicbias;
+  y = new double[numOfUsedPairs];
+  Xhicbias = new double[numOfUsedPairs];
+  X = new double *[numOfUsedPairs];
+  for (int i = 0; i < numOfUsedPairs; i++)
+    X[i] = new double[7];
+  cout << "numOfUsedPairs " << numOfUsedPairs << endl;
 
   int idx = 0;
 
@@ -266,22 +305,18 @@ int adaptMCMC::initialize(char *ofile)
   {
     for (int j = O.startCol(i) + 1; j < O.endCol(i); j++)
     {
-      if (numOfUsedPairs > 500000 && drand48() > 500000.0 / numOfUsedPairs)
-        continue;
       y[idx] = O.get(i, j);
-
-      cbs.get_xi(log(j - i), &X[idx][0]);
-
-      X[idx][7] = log(bias[i] * bias[j]);
+      cbs.get_xi(dtransfrom(j - i), &X[idx][0]);
+      Xhicbias[idx] = bias[i] * bias[j];
       idx++;
     }
   }
   cout << "number of instance= " << idx << endl;
-  poissonGLM pglm(8, idx, 1);
+  poissonGLM pglm(7, idx, 0);
   cout << "start fitting\n";
 
   // pglm.fit(X, y);
-  pglm.lbfgsfit(X, y);
+  pglm.lbfgsfit(X, y, Xhicbias);
   // exit(0);
   // cout << "predict \n";
   // for (int ttt = 0; ttt < 8; ttt++)
@@ -290,31 +325,34 @@ int adaptMCMC::initialize(char *ofile)
   // cout << pglm.predict(X[100000]);
   // exit(0);
   //refine null glm model
-  double **X2, *y2;
+  /***
+  double **X2, *y2, *Xhicbias2;
   int idx2 = 0;
   y2 = new double[idx];
+  Xhicbias2 = new double[idx];
   X2 = new double *[idx];
   for (int i = 0; i < idx; i++)
-    X2[i] = new double[8];
+    X2[i] = new double[7];
   double pval, mu;
   for (int i = 0; i < idx; i++)
   {
     mu = pglm.predict(X[i]);
     // std::cout<<"mean "<<mu<<endl;
     pval = gsl_cdf_poisson_Q(y[i], mu) + gsl_ran_poisson_pdf(y[i], mu);
-    if (pval > 0.025)
+
+    if (pval > 0.05)
     {
       y2[idx2] = y[i];
-      for (int j = 0; j < 8; j++)
+      Xhicbias2[idx2] = Xhicbias[i];
+      for (int j = 0; j < 7; j++)
         X2[idx2][j] = X[i][j];
       idx2++;
     }
   }
 
 
-  // poissonGLM pglm2(8, idx2, 1);
-
-  // pglm2.lbfgsfit(X2, y2);
+  pglm.lbfgsfit(X2, y2,Xhicbias2);
+  ***/
 
   // delete[] y;
   // delete[] y2;
@@ -328,88 +366,71 @@ int adaptMCMC::initialize(char *ofile)
   // delete[] X2;
 
   //. refine null glm nodel
+  int maxGenomicDistance = max(O.endRow(), O.endCol(O.endRow() - 1));
 
-  double x[8];
-  for (int i = O.startRow(); i < O.endRow(); i++)
-    for (int j = O.startCol(i) + 1; j < O.endCol(i); j++)
-    {
-      // cout << "glm " << i << " " << j << " ";
-      cbs.get_xi(log(j - i), x);
-      x[7] = 0; //log(bias[i]*bias[j]);
+  double x[7];
 
-      // x[0]=log(j-i);
-      // x[1]=0;
+  localPotential = new double[max(O.endRow(), O.endCol(O.endRow() - 1))];
+  for (int gd = 1; gd < maxGenomicDistance; gd++)
+  {
+    cbs.get_xi(dtransfrom(gd), x);
 
-      localPotential->set(i, j, pglm.predict(x));
+    localPotential[gd] = pglm.predict(x);
+    cout << "localPotential\t" << gd << "\t" << pglm.predict(x) << endl;
+  }
+  // exit(0);
 
-    }
-
-  //approx diagwise variance with normalized contact map(i.e. O/bias)
-  double diagTsum, diagTTsum, logNormO;
-  double *genomicdistance, *approxVar;
-  genomicdistance = new double[max(O.endRow(), O.endCol(O.endRow() - 1))];
-  approxVar = new double[max(O.endRow(), O.endCol(O.endRow() - 1))];
   localPotentialSigma = new double[max(O.endRow(), O.endCol(O.endRow() - 1))];
-  int maxGenomicDistance = 0;
+
   int numOfValForVar = 0;
   int minVarNum = 20;
   idx = 0;
   double varlogNormO;
-  for (int i = O.startRow(); i < O.endRow(); i++)
-    for (int j = O.startCol(i) + 1; j < O.endCol(i); j++)
-      maxGenomicDistance = max(j - i, maxGenomicDistance);
 
+  int diagOffset = 0;
+  double logNormO;
+  vector<double> diagVal;
   for (int gd = 1; gd < maxGenomicDistance; gd++)
   {
-    numOfValForVar = 0;
-    diagTsum = 0;
-    diagTTsum = 0;
+    diagVal.clear();
     for (int i = O.startRow(); i < O.endRow(); i++)
+    {
       if (i + gd < O.endCol(i))
       {
-        logNormO = log(O.get(i, i + gd) / (bias[i] * bias[i + gd]) + 1);
-        // logNormO = (O.get(i, i + gd) / (bias[i] * bias[i + gd]));
-        diagTTsum += logNormO * logNormO;
-        diagTsum += logNormO;
-        numOfValForVar++;
-      }
-
-    if (numOfValForVar > minVarNum)
-    {
-      varlogNormO = diagTTsum / numOfValForVar - pow(diagTsum / numOfValForVar, 2);
-      varlogNormO *= numOfValForVar / (numOfValForVar - 1);
-      if (varlogNormO > 0)
-      {
-        approxVar[idx] = varlogNormO;
-        genomicdistance[idx] = gd;
-        idx++;
-        // cout << "ttt " << gd << " " << varlogNormO << endl;
+        if (O.get(i, i + gd) > 0)
+        {
+          logNormO = log(O.get(i, i + gd) / (bias[i] * bias[i + gd]) + 1);
+          diagVal.push_back(logNormO);
+        }
       }
     }
+    diagOffset = 0;
+    while (diagVal.size() < 100)
+    {
+      diagOffset++;
+      for (int i = O.startRow(); i < O.endRow(); i++)
+      {
+        if (i + gd + diagOffset < O.endCol(i))
+        {
+          if (O.get(i, i + gd + diagOffset) > 0)
+          {
+            logNormO = log(O.get(i, i + gd + diagOffset) / (bias[i] * bias[i + gd + diagOffset]) + 1);
+            diagVal.push_back(logNormO);
+          }
+        }
+        if (gd - diagOffset > 0 && i + gd - diagOffset < O.endCol(i))
+        {
+          if (O.get(i, i + gd - diagOffset) > 0)
+          {
+            logNormO = log(O.get(i, i + gd - diagOffset) / (bias[i] * bias[i + gd - diagOffset]) + 1);
+            diagVal.push_back(logNormO);
+          }
+        }
+      }
+    }
+    localPotentialSigma[gd] = fmax(0.1, Var(diagVal));
+    cout << "localPotentialSigma\t" << gd << "\t" << localPotentialSigma[gd] << endl;
   }
-  // return 0;
-  double expparam_a, expparam_b, expparam_c;
-  expparam_a = 0;
-  expparam_b = 0;
-  expparam_c = 0;
-
-  // fitExp_bfgs(idx, genomicdistance, approxVar, expparam_a, expparam_b, expparam_c);
-  fitExp(idx, genomicdistance, approxVar, expparam_a, expparam_b, expparam_c);
-  // cerr << "y=" << expparam_a << "*np.exp(" << expparam_b << "*x)+" << expparam_c << endl;
-  // exit(0);
-  delete[] genomicdistance;
-  delete[] approxVar;
-  // cout << expparam_a << " " << expparam_b << " " << expparam_c << endl;
-
-  for (int i = 0; i < max(O.endRow(), O.endCol(O.endRow() - 1)); i++)
-  {
-    // cout << "localSigmaSq " << i << " ";
-    localPotentialSigma[i] = approxVar[i];//predExp(i, expparam_a, expparam_b, expparam_c);
-    localPotentialSigma[i] = fmax(0.5, localPotentialSigma[i]);
-    // cout << localPotentialSigma[i] << endl
-    //  << flush;
-  }
-  // cout << "finished localPotentialSigma\n";
   // exit(0);
   return 0;
 }
@@ -658,7 +679,7 @@ int adaptMCMC::mainIter()
       pthread_join(threads[i], NULL);
     }
 
-    if (rep % 10 == 0)
+    if (rep % 50 == 0)
     {
       nSamples++;
       for (int i = O.startRow(); i < O.endRow(); i++)
@@ -917,16 +938,21 @@ int adaptMCMC::evaluateFullLikelihood(double &lPrior, double &lData)
       t = mCurrentTPtr->get(i, j);
       o = O.get(i, j);
       biases = bias[i] * bias[j];
-      getNeighbors(i, j, allNei);
-      for (int ii = 0; ii < 8 && allNei[ii] > -1; ii++)
+      if (strcmp(option_prior, "uniform") != 0 && strcmp(option_prior, "gaussian") != 0)
       {
-
-        lPrior -= pow(log(allNei[ii] + 1) - log(t + 1), 2) / pairwisePotentialVariance->get(i, j); // variance; //fmax(0.1,variance*fmax(log(allNei[ii] + 1),log(oldVal + 1)));
+        getNeighbors(i, j, allNei);
+        for (int ii = 0; ii < 8 && allNei[ii] > -1; ii++)
+        {
+          lPrior -= pow(log(allNei[ii] + 1) - log(t + 1), 2) / pairwisePotentialVariance->get(i, j);
+        }
       }
 
-      lPrior -= pow(log(localPotential->get(i, j) + 1) - log(t + 1), 2) / localPotentialSigma[j - i];
+      if (strcmp(option_prior, "uniform") != 0)
+      {
+        lPrior -= pow(log(localPotential[j - i] + 1) - log(t + 1), 2) / localPotentialSigma[j - i];
+      }
       //poisson
-      lData += o * log(biases * t * this->batchSize) - biases * t * this->batchSize;
+      lData += o * log(biases * t) - biases * t;
       //end of poisson
     }
   }
@@ -994,19 +1020,24 @@ double adaptMCMC::mhRatio(const int &i, const int &j, double &newVal)
   double biases = bias[i] * bias[j];
   int nNei = 0;
   float sumNeighbor = 0;
-  float *allNei;
-  allNei = new float[9];
-  getNeighbors(i, j, allNei);
+
   double oldVal = mCurrentTPtr->get(i, j);
   double o = O.get(i, j);
   // double variance; // = option_sigma;
   llike1 = 0;
   llike2 = 0;
-  for (int ii = 0; ii < 8 && allNei[ii] > -1; ii++)
+
+  if (strcmp(option_prior, "uniform") != 0 && strcmp(option_prior, "gaussian") != 0)
   {
-    // cout<<"variance "<<variance<<endl;
-    llike1 -= pow(log(allNei[ii] + 1) - log(oldVal + 1), 2) / pairwisePotentialVariance->get(i, j); //variance; //fmax(0.1,variance*fmax(log(allNei[ii] + 1),log(oldVal + 1)));
-    llike2 -= pow(log(allNei[ii] + 1) - log(newVal + 1), 2) / pairwisePotentialVariance->get(i, j); //variance; //fmax(0.1,variance*fmax(log(allNei[ii] + 1),log(newVal + 1)));
+    float *allNei;
+    allNei = new float[9];
+    getNeighbors(i, j, allNei);
+    for (int ii = 0; ii < 8 && allNei[ii] > -1; ii++)
+    {
+      llike1 -= pow(log(allNei[ii] + 1) - log(oldVal + 1), 2) / pairwisePotentialVariance->get(i, j); //variance; //fmax(0.1,variance*fmax(log(allNei[ii] + 1),log(oldVal + 1)));
+      llike2 -= pow(log(allNei[ii] + 1) - log(newVal + 1), 2) / pairwisePotentialVariance->get(i, j); //variance; //fmax(0.1,variance*fmax(log(allNei[ii] + 1),log(newVal + 1)));
+    }
+    delete[] allNei;
   }
 
   //poisson
@@ -1014,14 +1045,15 @@ double adaptMCMC::mhRatio(const int &i, const int &j, double &newVal)
   llike2 += o * log(biases * newVal * this->batchSize) - biases * newVal * this->batchSize;
   //end of poisson
 
-  llike1 -= pow(log(localPotential->get(i, j) + 1) - log(oldVal + 1), 2) /localPotentialSigma[j - i];
-  llike2 -= pow(log(localPotential->get(i, j) + 1) - log(newVal + 1), 2) /localPotentialSigma[j - i];
-
+  if (strcmp(option_prior, "uniform") != 0)
+  {
+    llike1 -= pow(log(localPotential[j - i] + 1) - log(oldVal + 1), 2) / localPotentialSigma[j - i];
+    llike2 -= pow(log(localPotential[j - i] + 1) - log(newVal + 1), 2) / localPotentialSigma[j - i];
+  }
 
   // llike1 -= pow(localPotential->get(i, j) - oldVal * this->batchSize, 2) / localPotentialSigma[j - i]; // old delete
   // llike2 -= pow(localPotential->get(i, j) - newVal * this->batchSize, 2) / localPotentialSigma[j - i];// old delete
 
-  delete[] allNei;
   return exp(llike2 - llike1) * newVal / oldVal;
 }
 
@@ -1248,7 +1280,7 @@ void adaptMCMC::outputCurrentSparseMatrixGZ(const char *fn)
         continue;
       val = this->mCurrentTPtr->get(i, j);
       //if (val > option_minOutput)
-      gzprintf(gzO, "%d %d %d %d %5.4lf\n",chr1, i,chr2, j,val);
+      gzprintf(gzO, "%d\t%d\t%d\t%d\t%5.4lf\n", chr1, i, chr2, j, val);
     }
   }
   gzclose(gzO);
