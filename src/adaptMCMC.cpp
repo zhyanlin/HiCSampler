@@ -177,13 +177,13 @@ int adaptMCMC::initialize(char *ofile)
     {
 
       currentPotentialVariance = fmax(0.1, getRegionalVar(i, j, w));
-      cout << i << "\t" << j << "\t" << w << "\t" << getRegionalVar(i, j, w) << "\tregionalVar\n";
+      // cout << i << "\t" << j << "\t" << w << "\t" << getRegionalVar(i, j, w) << "\tregionalVar\n";
 
       if(option_sigma>0)
         pairwisePotentialVariance->set(i, j, option_sigma);
       else
         pairwisePotentialVariance->set(i, j, currentPotentialVariance);
-      cout<<"pairwisePotentialVariance "<<pairwisePotentialVariance->get(i,j)<<endl;
+      // cout<<"pairwisePotentialVariance "<<pairwisePotentialVariance->get(i,j)<<endl;
     }
   }
 
@@ -297,7 +297,7 @@ int adaptMCMC::initialize(char *ofile)
   X = new double *[numOfUsedPairs];
   for (int i = 0; i < numOfUsedPairs; i++)
     X[i] = new double[7];
-  cout << "numOfUsedPairs " << numOfUsedPairs << endl;
+  // cout << "numOfUsedPairs " << numOfUsedPairs << endl;
 
   int idx = 0;
 
@@ -311,9 +311,9 @@ int adaptMCMC::initialize(char *ofile)
       idx++;
     }
   }
-  cout << "number of instance= " << idx << endl;
+  // cout << "number of instance= " << idx << endl;
   poissonGLM pglm(7, idx, 0);
-  cout << "start fitting\n";
+  // cout << "start fitting\n";
 
   // pglm.fit(X, y);
   pglm.lbfgsfit(X, y, Xhicbias);
@@ -376,7 +376,7 @@ int adaptMCMC::initialize(char *ofile)
     cbs.get_xi(dtransfrom(gd), x);
 
     localPotential[gd] = pglm.predict(x);
-    cout << "localPotential\t" << gd << "\t" << pglm.predict(x) << endl;
+    // cout << "localPotential\t" << gd << "\t" << pglm.predict(x) << endl;
   }
   // exit(0);
 
@@ -429,7 +429,7 @@ int adaptMCMC::initialize(char *ofile)
       }
     }
     localPotentialSigma[gd] = fmax(0.1, Var(diagVal));
-    cout << "localPotentialSigma\t" << gd << "\t" << localPotentialSigma[gd] << endl;
+    // cout << "localPotentialSigma\t" << gd << "\t" << localPotentialSigma[gd] << endl;
   }
   // exit(0);
   return 0;
@@ -1086,8 +1086,8 @@ int adaptMCMC::blockConverged()
         continue;
       }
       cdiff = &(this->mBlockedChainDiff.find(key)->second);
-      cout << i << "," << j << " ~ " << i + this->rowStep << ","
-           << j + this->colStep << endl;
+      // cout << i << "," << j << " ~ " << i + this->rowStep << ","
+      //      << j + this->colStep << endl;
       //shift 1 position left of difference for incoorp new one
       if (cdiff->counts == 9)
       {
